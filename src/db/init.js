@@ -63,4 +63,10 @@ function initDb() {
   return db;
 }
 
+if (require.main === module) {
+  const db = initDb();
+  db.close();
+  console.log('Done.');
+}
+
 module.exports = initDb;
