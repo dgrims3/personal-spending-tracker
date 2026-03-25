@@ -1,52 +1,78 @@
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Validate a single line item from LLM output.
+ * Validate a single line item object.
  * @param {object} item
- * @returns {{ valid: boolean, errors: string[] }}
+ * @returns {{ ok: boolean, errors: string[] }}
  */
-function validateLineItem(item) {
+function validateOne(item) {
   const errors = [];
 
-  if (!item || typeof item !== 'object') {
-    return { valid: false, errors: ['item is not an object'] };
+  if (typeof item !== 'object' || item === null) {
+    return { ok: false, errors: ['Item is not an object'] };
   }
 
-  if (!item.store || typeof item.store !== 'string') errors.push('store is required and must be a string');
-  if (!item.product || typeof item.product !== 'string') errors.push('product is required and must be a string');
-  if (!item.category || typeof item.category !== 'string') errors.push('category is required and must be a string');
-  if (!item.date || typeof item.date !== 'string' || !DATE_RE.test(item.date)) errors.push('date is required and must be YYYY-MM-DD');
-  if (typeof item.cost !== 'number' || item.cost <= 0) errors.push('cost must be a number greater than 0');
+  if (typeof item.store !== 'string' || !item.store.trim()) {
+    errors.push('store must be a non-empty string');
+  }
+  if (typeof item.product !== 'string' || !item.product.trim()) {
+    errors.push('product must be a non-empty string');
+  }
+  if (typeof item.category !== 'string' || !item.category.trim()) {
+    errors.push('category must be a non-empty string');
+  }
+  if (typeof item.date !== 'string' || !DATE_RE.test(item.date)) {
+    errors.push('date must match YYYY-MM-DD');
+  }
+  if (typeof item.cost !== 'number' || item.cost <= 0) {
+    errors.push('cost must be a number greater than 0');
+  }
 
-  const quantity = item.quantity ?? 1;
-  if (!Number.isInteger(quantity) || quantity < 1) errors.push('quantity must be a positive integer');
+  const qty = item.quantity ?? 1;
+  if (!Number.isInteger(qty) || qty < 1) {
+    errors.push('quantity must be a positive integer');
+  }
 
-  return { valid: errors.length === 0, errors };
+  return { ok: errors.length === 0, errors };
 }
 
 /**
- * Validate an array of line items.
- * @param {object[]} items
- * @returns {{ valid: boolean, items: object[], errors: string[] }}
+ * Validate an array of parsed line item objects.
+ * Each item must have: store (string), product (string), category (string),
+ * date (YYYY-MM-DD string), cost (number > 0), quantity (positive integer).
+ * Strips unexpected fields from valid items. Defaults quantity to 1 if absent.
+ *
+ * @param {object[]} items - Array of parsed line item objects
+ * @returns {{ valid: object[], invalid: Array<{ item: object, reason: string }> }}
  */
 function validateLineItems(items) {
   if (!Array.isArray(items)) {
-    return { valid: false, items: [], errors: ['response is not an array'] };
+    return {
+      valid: [],
+      invalid: [{ item: items, reason: 'Expected an array of line items' }],
+    };
   }
 
-  const allErrors = [];
-  const validItems = [];
+  const valid = [];
+  const invalid = [];
 
-  items.forEach((item, i) => {
-    const { valid, errors } = validateLineItem(item);
-    if (valid) {
-      validItems.push({ ...item, quantity: item.quantity ?? 1 });
+  for (const item of items) {
+    const result = validateOne(item);
+    if (result.ok) {
+      valid.push({
+        store: item.store.trim(),
+        product: item.product.trim(),
+        category: item.category.trim(),
+        date: item.date,
+        cost: item.cost,
+        quantity: item.quantity ?? 1,
+      });
     } else {
-      allErrors.push(`item[${i}]: ${errors.join('; ')}`);
+      invalid.push({ item, reason: result.errors.join('; ') });
     }
-  });
+  }
 
-  return { valid: allErrors.length === 0, items: validItems, errors: allErrors };
+  return { valid, invalid };
 }
 
-module.exports = { validateLineItem, validateLineItems };
+module.exports = { validateLineItems };

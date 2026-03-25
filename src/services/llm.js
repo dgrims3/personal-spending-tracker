@@ -1,22 +1,7 @@
-const fs = require('fs');
-const path = require('path');
+const { auditLog } = require('./logger');
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const MODEL = 'llama3.1:8b';
-const LOG_PATH = path.join(__dirname, '../../logs/llm-audit.log');
-
-/**
- * Append an entry to the LLM audit log.
- * @param {object} entry
- */
-function auditLog(entry) {
-  const logDir = path.dirname(LOG_PATH);
-  if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir, { recursive: true });
-  }
-  const line = JSON.stringify({ timestamp: new Date().toISOString(), ...entry }) + '\n';
-  fs.appendFileSync(LOG_PATH, line);
-}
 
 const TIMEOUT_MS = 120_000;
 
@@ -74,4 +59,4 @@ async function generate(prompt) {
   }
 }
 
-module.exports = { generate, auditLog };
+module.exports = { generate };

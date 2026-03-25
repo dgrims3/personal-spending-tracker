@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const { generate, auditLog } = require('./llm');
+const { generate } = require('./llm');
+const { auditLog } = require('./logger');
 const { validateLineItems } = require('./validator');
 const { getAllCategories } = require('../db/queries');
 
@@ -60,27 +61,28 @@ async function parseReceipt(rawText, existingCategories) {
     }
 
     if (!parseError) {
-      validationResult = validateLineItems(parsed);
+      validationResult = validateLineItems(Array.isArray(parsed) ? parsed : parsed?.items ?? parsed);
     }
 
-    const validationPassed = !parseError && validationResult.valid;
+    const validationPassed = !parseError && validationResult.invalid.length === 0;
 
     auditLog({
       stage: 'parse-receipt',
       attempt,
       parsedResult: parseError ? null : parsed,
       parseError,
-      validationErrors: validationResult?.errors ?? null,
+      invalidItems: validationResult?.invalid ?? null,
       validationPassed,
     });
 
     if (validationPassed) {
-      return { items: validationResult.items, needsReview: false, reviewReason: null };
+      return { items: validationResult.valid, needsReview: false, reviewReason: null };
     }
 
     if (attempt === 2) {
-      const reason = parseError ?? validationResult.errors.join('; ');
-      return { items: [], needsReview: true, reviewReason: reason };
+      const reason = parseError
+        ?? validationResult.invalid.map((e) => e.reason).join('; ');
+      return { items: validationResult.valid, needsReview: true, reviewReason: reason };
     }
   }
 }
