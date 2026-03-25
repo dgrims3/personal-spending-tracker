@@ -1,10 +1,4 @@
-const { execFile } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { promisify } = require('util');
-
-const execFileAsync = promisify(execFile);
+const { execSync } = require('child_process');
 
 /**
  * Run Tesseract OCR on an image file.
@@ -12,17 +6,20 @@ const execFileAsync = promisify(execFile);
  * @returns {Promise<string>} Extracted text
  */
 async function extractText(imagePath) {
-  const outBase = path.join(os.tmpdir(), `ocr-${Date.now()}`);
-  const outFile = `${outBase}.txt`;
-
   try {
-    await execFileAsync('tesseract', [imagePath, outBase]);
-    const text = fs.readFileSync(outFile, 'utf8');
-    return text.trim();
-  } finally {
-    if (fs.existsSync(outFile)) {
-      fs.unlinkSync(outFile);
+    const output = execSync(`tesseract ${JSON.stringify(imagePath)} stdout`, {
+      encoding: 'utf8',
+    });
+    return output.trim();
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      throw new Error('Tesseract not found. Install it with: apt-get install tesseract-ocr');
     }
+    const stderr = err.stderr || '';
+    if (stderr.includes('Error') || stderr.includes('Failed') || err.status !== 0) {
+      throw new Error(`Tesseract failed to process image: ${stderr.trim() || err.message}`);
+    }
+    throw err;
   }
 }
 
