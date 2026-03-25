@@ -1,6 +1,6 @@
 const express = require('express');
 const { authenticate } = require('../middleware/auth');
-const { questionToSql } = require('../services/parser');
+const { generateSQL } = require('../services/parser');
 const { queryLineItems } = require('../db/queries');
 
 const router = express.Router();
@@ -22,7 +22,7 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'question is required' });
     }
 
-    const sql = await questionToSql(question);
+    const sql = await generateSQL(question);
 
     if (!SELECT_RE.test(sql) || WRITE_RE.test(sql)) {
       return res.status(422).json({ error: 'Generated query is not a safe SELECT statement', sql });

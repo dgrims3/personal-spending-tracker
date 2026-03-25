@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { complete, auditLog } = require('./llm');
+const { generate, auditLog } = require('./llm');
 const { validateLineItems } = require('./validator');
 const { getAllCategories } = require('../db/queries');
 
@@ -29,10 +29,11 @@ function fillTemplate(template, vars) {
  * Parse raw OCR text into structured line items using the LLM.
  * Retries once on validation failure; queues for review if still invalid.
  * @param {string} rawText
+ * @param {string[]} [existingCategories] - Category names; fetched from DB if omitted
  * @returns {Promise<{ items: object[], needsReview: boolean, reviewReason: string|null }>}
  */
-async function parseReceipt(rawText) {
-  const categories = getAllCategories();
+async function parseReceipt(rawText, existingCategories) {
+  const categories = existingCategories ?? getAllCategories();
   const template = loadPrompt('parse-receipt');
   const prompt = fillTemplate(template, {
     categories: categories.length ? categories.join(', ') : '(none yet)',
@@ -46,7 +47,7 @@ async function parseReceipt(rawText) {
     let validationResult = null;
 
     try {
-      rawResponse = await complete(prompt);
+      rawResponse = await generate(prompt);
     } catch (err) {
       auditLog({ stage: 'parse-receipt', attempt, error: err.message, validationPassed: false });
       throw err;
@@ -84,28 +85,39 @@ async function parseReceipt(rawText) {
   }
 }
 
+const SELECT_RE = /^\s*SELECT\b/i;
+const WRITE_RE = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|TRUNCATE)\b/i;
+
 /**
  * Convert a natural language question to a SQL SELECT query.
+ * Throws if the generated query is not a safe SELECT statement.
  * @param {string} question
+ * @param {string[]} [existingCategories] - Category names; fetched from DB if omitted
  * @returns {Promise<string>} SQL query string
  */
-async function questionToSql(question) {
-  const categories = getAllCategories();
+async function generateSQL(question, existingCategories) {
+  const categories = existingCategories ?? getAllCategories();
   const template = loadPrompt('query-to-sql');
   const prompt = fillTemplate(template, {
     categories: categories.length ? categories.join(', ') : '(none yet)',
     question,
   });
 
-  const rawResponse = await complete(prompt);
+  const rawResponse = await generate(prompt);
+  const sql = rawResponse.trim();
 
   auditLog({
     stage: 'query-to-sql',
     question,
     rawResponse,
+    sql,
   });
 
-  return rawResponse.trim();
+  if (!SELECT_RE.test(sql) || WRITE_RE.test(sql)) {
+    throw new Error('LLM returned a non-SELECT query');
+  }
+
+  return sql;
 }
 
-module.exports = { parseReceipt, questionToSql };
+module.exports = { parseReceipt, generateSQL };
