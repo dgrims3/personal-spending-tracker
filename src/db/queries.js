@@ -28,15 +28,20 @@ function insertReceipt(rawText) {
 /**
  * Insert a line item.
  * @param {number} receiptId
- * @param {{store: string, product: string, category: string, date: string, cost: number, quantity: number}} item
+ * @param {string} store
+ * @param {string} product
+ * @param {string} category
+ * @param {string} date - ISO 8601 (YYYY-MM-DD)
+ * @param {number} cost
+ * @param {number} quantity
  */
-function insertLineItem(receiptId, item) {
+function insertLineItem(receiptId, store, product, category, date, cost, quantity = 1) {
   const db = getDb();
   try {
     db.prepare(`
       INSERT INTO line_items (receipt_id, store, product, category, date, cost, quantity)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(receiptId, item.store, item.product, item.category, item.date, item.cost, item.quantity ?? 1);
+    `).run(receiptId, store, product, category, date, cost, quantity);
   } finally {
     db.close();
   }
@@ -46,7 +51,7 @@ function insertLineItem(receiptId, item) {
  * Get all category names.
  * @returns {string[]}
  */
-function getCategories() {
+function getAllCategories() {
   const db = getDb();
   try {
     return db.prepare('SELECT name FROM categories ORDER BY name').all().map(r => r.name);
@@ -59,7 +64,7 @@ function getCategories() {
  * Insert a category if it doesn't already exist.
  * @param {string} name
  */
-function upsertCategory(name) {
+function insertCategory(name) {
   const db = getDb();
   try {
     db.prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)').run(name);
@@ -88,7 +93,7 @@ function insertReviewItem(receiptId, rawText, reason) {
  * @param {string} sql
  * @returns {object[]}
  */
-function runSelectQuery(sql) {
+function queryLineItems(sql) {
   const db = getDb();
   try {
     return db.prepare(sql).all();
@@ -97,4 +102,4 @@ function runSelectQuery(sql) {
   }
 }
 
-module.exports = { insertReceipt, insertLineItem, getCategories, upsertCategory, insertReviewItem, runSelectQuery };
+module.exports = { insertReceipt, insertLineItem, getAllCategories, insertCategory, insertReviewItem, queryLineItems };

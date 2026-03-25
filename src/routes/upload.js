@@ -6,7 +6,7 @@ const fs = require('fs');
 const { authenticate } = require('../middleware/auth');
 const { extractText } = require('../services/ocr');
 const { parseReceipt } = require('../services/parser');
-const { insertReceipt, insertLineItem, upsertCategory, insertReviewItem } = require('../db/queries');
+const { insertReceipt, insertLineItem, insertCategory, insertReviewItem } = require('../db/queries');
 
 const router = express.Router();
 
@@ -55,8 +55,8 @@ router.post('/', authenticate, upload.single('receipt'), async (req, res) => {
 
     // Step 4: Store validated items
     for (const item of items) {
-      upsertCategory(item.category);
-      insertLineItem(receiptId, item);
+      insertCategory(item.category);
+      insertLineItem(receiptId, item.store, item.product, item.category, item.date, item.cost, item.quantity ?? 1);
     }
 
     res.json({ status: 'ok', receiptId, items });

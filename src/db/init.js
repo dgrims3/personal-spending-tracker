@@ -49,8 +49,18 @@ function initDb() {
     );
   `);
 
-  db.close();
+  const seedCategories = db.prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)');
+  const seedMany = db.transaction((names) => {
+    for (const name of names) seedCategories.run(name);
+  });
+  seedMany([
+    'Produce', 'Dairy', 'Meat', 'Bakery', 'Frozen',
+    'Beverages', 'Snacks', 'Household', 'Health & Beauty',
+    'Baby', 'Pet', 'Clothing', 'Electronics', 'Gas', 'Dining Out', 'Other',
+  ]);
+
   console.log('Database initialized at', DB_PATH);
+  return db;
 }
 
 module.exports = initDb;

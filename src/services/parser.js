@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { complete, auditLog } = require('./llm');
 const { validateLineItems } = require('./validator');
-const { getCategories } = require('../db/queries');
+const { getAllCategories } = require('../db/queries');
 
 const PROMPTS_DIR = path.join(__dirname, '../prompts');
 
@@ -32,7 +32,7 @@ function fillTemplate(template, vars) {
  * @returns {Promise<{ items: object[], needsReview: boolean, reviewReason: string|null }>}
  */
 async function parseReceipt(rawText) {
-  const categories = getCategories();
+  const categories = getAllCategories();
   const template = loadPrompt('parse-receipt');
   const prompt = fillTemplate(template, {
     categories: categories.length ? categories.join(', ') : '(none yet)',
@@ -90,7 +90,7 @@ async function parseReceipt(rawText) {
  * @returns {Promise<string>} SQL query string
  */
 async function questionToSql(question) {
-  const categories = getCategories();
+  const categories = getAllCategories();
   const template = loadPrompt('query-to-sql');
   const prompt = fillTemplate(template, {
     categories: categories.length ? categories.join(', ') : '(none yet)',
