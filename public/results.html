@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Query Results – Receipt Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Query Results</h1>
+    <a href="/app.html">&larr; Back</a>
+  </header>
+
+  <main>
+    <div id="results-container">
+      <p class="loading">Loading...</p>
+    </div>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const encoded = params.get('data');
+    const container = document.getElementById('results-container');
+
+    if (!encoded) {
+      container.innerHTML = '<p class="error">No results to display.</p>';
+    } else {
+      try {
+        const { sql, results } = JSON.parse(decodeURIComponent(encoded));
+
+        if (!results || results.length === 0) {
+          container.innerHTML = '<p>No results found.</p>';
+        } else {
+          const keys = Object.keys(results[0]);
+          const table = document.createElement('table');
+          table.innerHTML = `
+            <thead><tr>${keys.map(k => `<th>${k}</th>`).join('')}</tr></thead>
+            <tbody>
+              ${results.map(row => `<tr>${keys.map(k => `<td>${row[k] ?? ''}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+          `;
+          container.innerHTML = `<details><summary>SQL</summary><pre>${sql}</pre></details>`;
+          container.appendChild(table);
+        }
+      } catch {
+        container.innerHTML = '<p class="error">Failed to parse results.</p>';
+      }
+    }
+  </script>
+</body>
+</html>

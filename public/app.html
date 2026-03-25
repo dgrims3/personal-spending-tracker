@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Receipt Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Receipt Tracker</h1>
+    <button id="logout-btn">Logout</button>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="upload">Upload Receipt</button>
+      <button class="tab-btn" data-tab="query">Query Spending</button>
+    </div>
+
+    <!-- Upload tab -->
+    <section id="tab-upload" class="tab-panel">
+      <form id="upload-form">
+        <label for="receipt-file">Select receipt image</label>
+        <input type="file" id="receipt-file" name="receipt" accept="image/*" capture="environment" required>
+        <button type="submit">Upload &amp; Process</button>
+      </form>
+      <div id="upload-status"></div>
+      <div id="upload-results"></div>
+    </section>
+
+    <!-- Query tab -->
+    <section id="tab-query" class="tab-panel hidden">
+      <form id="query-form">
+        <label for="question">Ask about your spending</label>
+        <input type="text" id="question" name="question" placeholder="How much did I spend on groceries this month?" required>
+        <button type="submit">Ask</button>
+      </form>
+      <div id="query-results"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
