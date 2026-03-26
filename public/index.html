@@ -3,32 +3,78 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Receipt Tracker – Login</title>
+  <title>Receipt Tracker</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="auth-container">
     <h1>Receipt Tracker</h1>
-    <form id="login-form">
-      <label for="password">Password</label>
-      <input type="password" id="password" name="password" autocomplete="current-password" required>
-      <button type="submit">Login</button>
+
+    <!-- Login form (default) -->
+    <form id="login-form" class="hidden">
+      <label for="login-username">Username</label>
+      <input type="text" id="login-username" autocomplete="username" required>
+      <label for="login-password">Password</label>
+      <input type="password" id="login-password" autocomplete="current-password" required>
+      <button type="submit">Log In</button>
       <p id="login-error" class="error hidden"></p>
     </form>
+
+    <!-- Registration form (first visit, no users) -->
+    <form id="register-form" class="hidden">
+      <p class="hint">No account exists yet. Create one to get started.</p>
+      <label for="reg-username">Username</label>
+      <input type="text" id="reg-username" autocomplete="username" required>
+      <label for="reg-password">Password</label>
+      <input type="password" id="reg-password" autocomplete="new-password" required>
+      <button type="submit">Create Account</button>
+      <p id="register-error" class="error hidden"></p>
+    </form>
+
+    <p id="auth-loading" class="loading">Loading...</p>
   </div>
 
   <script>
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
+    // If already logged in, go straight to app
+    if (localStorage.getItem('token')) {
+      window.location.href = '/app.html';
+    }
+
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const loadingEl = document.getElementById('auth-loading');
+
+    // Check if this is a fresh install (no users yet)
+    fetch('/api/auth/status')
+      .then(r => r.json())
+      .then(data => {
+        loadingEl.classList.add('hidden');
+        if (data.needsRegistration) {
+          registerForm.classList.remove('hidden');
+        } else {
+          loginForm.classList.remove('hidden');
+        }
+      })
+      .catch(() => {
+        loadingEl.textContent = 'Could not reach server.';
+        loadingEl.classList.remove('loading');
+        loadingEl.classList.add('error');
+      });
+
+    // Login
+    loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const password = document.getElementById('password').value;
       const errorEl = document.getElementById('login-error');
       errorEl.classList.add('hidden');
+
+      const username = document.getElementById('login-username').value;
+      const password = document.getElementById('login-password').value;
 
       try {
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password }),
+          body: JSON.stringify({ username, password }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -38,7 +84,36 @@
         }
         localStorage.setItem('token', data.token);
         window.location.href = '/app.html';
-      } catch (err) {
+      } catch {
+        errorEl.textContent = 'Network error';
+        errorEl.classList.remove('hidden');
+      }
+    });
+
+    // Register
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorEl = document.getElementById('register-error');
+      errorEl.classList.add('hidden');
+
+      const username = document.getElementById('reg-username').value;
+      const password = document.getElementById('reg-password').value;
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errorEl.textContent = data.error || 'Registration failed';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        localStorage.setItem('token', data.token);
+        window.location.href = '/app.html';
+      } catch {
         errorEl.textContent = 'Network error';
         errorEl.classList.remove('hidden');
       }

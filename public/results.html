@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Query Results – Receipt Tracker</title>
+  <title>Query Results - Receipt Tracker</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
     <h1>Query Results</h1>
-    <a href="/app.html">&larr; Back</a>
+    <a href="/app.html" class="back-link">&larr; Back</a>
   </header>
 
   <main>
@@ -33,15 +33,19 @@
           container.innerHTML = '<p>No results found.</p>';
         } else {
           const keys = Object.keys(results[0]);
-          const table = document.createElement('table');
-          table.innerHTML = `
-            <thead><tr>${keys.map(k => `<th>${k}</th>`).join('')}</tr></thead>
-            <tbody>
-              ${results.map(row => `<tr>${keys.map(k => `<td>${row[k] ?? ''}</td>`).join('')}</tr>`).join('')}
-            </tbody>
-          `;
-          container.innerHTML = `<details><summary>SQL</summary><pre>${sql}</pre></details>`;
-          container.appendChild(table);
+          let html = `<div class="results-wrap">
+            <table>
+              <thead><tr>${keys.map(k => `<th>${k}</th>`).join('')}</tr></thead>
+              <tbody>
+                ${results.map(row => `<tr>${keys.map(k => `<td>${row[k] ?? ''}</td>`).join('')}</tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+
+          if (sql) {
+            html += `<details><summary>Generated SQL</summary><pre>${sql}</pre></details>`;
+          }
+          container.innerHTML = html;
         }
       } catch {
         container.innerHTML = '<p class="error">Failed to parse results.</p>';

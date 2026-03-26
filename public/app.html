@@ -14,18 +14,18 @@
 
   <main>
     <div class="tabs">
-      <button class="tab-btn active" data-tab="upload">Upload Receipt</button>
+      <button class="tab-btn active" data-tab="upload">Scan Receipt</button>
       <button class="tab-btn" data-tab="query">Query Spending</button>
     </div>
 
     <!-- Upload tab -->
     <section id="tab-upload" class="tab-panel">
       <form id="upload-form">
-        <label for="receipt-file">Select receipt image</label>
+        <label for="receipt-file">Take a photo or choose an image</label>
         <input type="file" id="receipt-file" name="receipt" accept="image/*" capture="environment" required>
-        <button type="submit">Upload &amp; Process</button>
+        <button type="submit" id="upload-btn">Upload & Process</button>
       </form>
-      <div id="upload-status"></div>
+      <div id="upload-status" class="status hidden"></div>
       <div id="upload-results"></div>
     </section>
 
@@ -33,8 +33,8 @@
     <section id="tab-query" class="tab-panel hidden">
       <form id="query-form">
         <label for="question">Ask about your spending</label>
-        <input type="text" id="question" name="question" placeholder="How much did I spend on groceries this month?" required>
-        <button type="submit">Ask</button>
+        <input type="text" id="question" name="question" placeholder="e.g. How much did I spend on groceries this month?" required>
+        <button type="submit" id="query-btn">Ask</button>
       </form>
       <div id="query-results"></div>
     </section>
