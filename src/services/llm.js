@@ -1,7 +1,7 @@
 const { auditLog } = require('./logger');
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-const MODEL = 'llama3.1:8b';
+const MODEL = process.env.OLLAMA_MODEL || 'llama3.1';
 
 const TIMEOUT_MS = 120_000;
 
