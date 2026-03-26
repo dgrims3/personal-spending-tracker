@@ -6,7 +6,14 @@ const fs = require('fs');
 const { authenticate } = require('../middleware/auth');
 const { extractText } = require('../services/ocr');
 const { parseReceipt } = require('../services/parser');
-const { insertReceipt, insertLineItem, insertCategory, insertReviewItem } = require('../db/queries');
+const { auditLog } = require('../services/logger');
+const {
+  insertReceipt,
+  insertLineItem,
+  getAllCategories,
+  insertCategory,
+  insertReviewItem,
+} = require('../db/queries');
 
 const router = express.Router();
 
@@ -22,7 +29,7 @@ const upload = multer({
 /**
  * POST /api/upload
  * Multipart form: field name "receipt" containing the image file.
- * Returns parsed line items or review status.
+ * Returns { receiptId, itemsInserted, itemsFailed, items }.
  */
 router.post('/', authenticate, upload.single('receipt'), async (req, res) => {
   const filePath = req.file?.path;
@@ -38,29 +45,63 @@ router.post('/', authenticate, upload.single('receipt'), async (req, res) => {
       return res.status(422).json({ error: 'Could not extract text from image' });
     }
 
+    auditLog({ stage: 'upload', step: 'ocr-complete', textLength: rawText.length });
+
     // Step 2: Store raw receipt
     const receiptId = insertReceipt(rawText);
 
-    // Step 3: Parse with LLM
-    const { items, needsReview, reviewReason } = await parseReceipt(rawText);
+    // Step 3: Get existing categories
+    const existingCategories = getAllCategories();
 
-    if (needsReview) {
+    // Step 4: Parse with LLM (retries once internally on full validation failure)
+    const { items, needsReview, reviewReason } = await parseReceipt(rawText, existingCategories);
+
+    // Step 5: If ALL items failed after retry, queue for review
+    if (items.length === 0 && needsReview) {
       insertReviewItem(receiptId, rawText, reviewReason);
-      return res.status(202).json({
-        status: 'review',
-        message: 'Receipt queued for manual review',
-        reason: reviewReason,
+      auditLog({ stage: 'upload', step: 'all-items-failed', receiptId, reason: reviewReason });
+      return res.status(422).json({
+        receiptId,
+        itemsInserted: 0,
+        itemsFailed: 0,
+        items: [],
+        reviewQueued: true,
+        reviewReason,
       });
     }
 
-    // Step 4: Store validated items
+    // Step 6: Insert valid items and their categories
+    let itemsInserted = 0;
+    let itemsFailed = 0;
+
     for (const item of items) {
-      insertCategory(item.category);
-      insertLineItem(receiptId, item.store, item.product, item.category, item.date, item.cost, item.quantity ?? 1);
+      try {
+        insertCategory(item.category);
+        insertLineItem(receiptId, item.store, item.product, item.category, item.date, item.cost, item.quantity);
+        itemsInserted++;
+      } catch (err) {
+        auditLog({ stage: 'upload', step: 'insert-failed', receiptId, item, error: err.message });
+        itemsFailed++;
+      }
     }
 
-    res.json({ status: 'ok', receiptId, items });
+    // If some items needed review, queue those
+    if (needsReview) {
+      insertReviewItem(receiptId, rawText, reviewReason);
+      auditLog({ stage: 'upload', step: 'partial-review', receiptId, reason: reviewReason });
+    }
+
+    auditLog({
+      stage: 'upload',
+      step: 'complete',
+      receiptId,
+      itemsInserted,
+      itemsFailed,
+    });
+
+    res.json({ receiptId, itemsInserted, itemsFailed, items });
   } catch (err) {
+    auditLog({ stage: 'upload', step: 'error', error: err.message });
     console.error('Upload error:', err);
     res.status(500).json({ error: err.message });
   } finally {
