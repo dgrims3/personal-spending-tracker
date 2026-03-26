@@ -1,36 +1,52 @@
 const express = require('express');
 const { authenticate } = require('../middleware/auth');
 const { generateSQL } = require('../services/parser');
-const { queryLineItems } = require('../db/queries');
+const { auditLog } = require('../services/logger');
+const { getAllCategories, queryLineItems } = require('../db/queries');
 
 const router = express.Router();
 
-// Simple safeguard: only allow SELECT statements
-const SELECT_RE = /^\s*SELECT\b/i;
-const WRITE_RE = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|TRUNCATE)\b/i;
-
 /**
  * POST /api/query
- * Body: { question: string }
- * Returns: { sql: string, results: object[] }
+ * JSON body: { question: "how much did I spend on groceries this month?" }
+ * Returns: { question, sql, results: [...] }
  */
 router.post('/', authenticate, async (req, res) => {
+  const { question } = req.body;
+
+  if (!question || typeof question !== 'string' || !question.trim()) {
+    return res.status(400).json({ error: 'A "question" field is required' });
+  }
+
   try {
-    const { question } = req.body;
+    const categories = getAllCategories();
+    const sql = await generateSQL(question, categories);
 
-    if (!question || typeof question !== 'string') {
-      return res.status(400).json({ error: 'question is required' });
+    let results;
+    try {
+      results = queryLineItems(sql);
+    } catch (err) {
+      auditLog({
+        stage: 'query',
+        step: 'sql-execution-error',
+        question,
+        sql,
+        error: err.message,
+      });
+      return res.status(422).json({ error: 'Generated SQL failed to execute', question, sql });
     }
 
-    const sql = await generateSQL(question);
+    auditLog({
+      stage: 'query',
+      step: 'complete',
+      question,
+      sql,
+      resultCount: results.length,
+    });
 
-    if (!SELECT_RE.test(sql) || WRITE_RE.test(sql)) {
-      return res.status(422).json({ error: 'Generated query is not a safe SELECT statement', sql });
-    }
-
-    const results = queryLineItems(sql);
-    res.json({ sql, results });
+    res.json({ question, sql, results });
   } catch (err) {
+    auditLog({ stage: 'query', step: 'error', question, error: err.message });
     console.error('Query error:', err);
     res.status(500).json({ error: err.message });
   }
