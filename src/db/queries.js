@@ -102,4 +102,50 @@ function queryLineItems(sql) {
   }
 }
 
-module.exports = { insertReceipt, insertLineItem, getAllCategories, insertCategory, insertReviewItem, queryLineItems };
+/**
+ * Count total users.
+ * @returns {number}
+ */
+function getUserCount() {
+  const db = getDb();
+  try {
+    return db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Get a user by username.
+ * @param {string} username
+ * @returns {{ id: number, username: string, password_hash: string } | undefined}
+ */
+function getUserByUsername(username) {
+  const db = getDb();
+  try {
+    return db.prepare('SELECT id, username, password_hash FROM users WHERE username = ?').get(username);
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Insert a new user.
+ * @param {string} username
+ * @param {string} passwordHash
+ * @returns {number} user ID
+ */
+function insertUser(username, passwordHash) {
+  const db = getDb();
+  try {
+    const result = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, passwordHash);
+    return result.lastInsertRowid;
+  } finally {
+    db.close();
+  }
+}
+
+module.exports = {
+  insertReceipt, insertLineItem, getAllCategories, insertCategory,
+  insertReviewItem, queryLineItems, getUserCount, getUserByUsername, insertUser,
+};
