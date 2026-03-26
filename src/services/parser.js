@@ -55,7 +55,8 @@ async function parseReceipt(rawText, existingCategories) {
     }
 
     try {
-      parsed = JSON.parse(rawResponse);
+      const cleaned = rawResponse.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/,'');
+      parsed = JSON.parse(cleaned);
     } catch (err) {
       parseError = `JSON parse error: ${err.message}`;
     }
