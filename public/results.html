@@ -19,6 +19,15 @@
   </main>
 
   <script>
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     const params = new URLSearchParams(location.search);
     const encoded = params.get('data');
     const container = document.getElementById('results-container');
@@ -35,15 +44,15 @@
           const keys = Object.keys(results[0]);
           let html = `<div class="results-wrap">
             <table>
-              <thead><tr>${keys.map(k => `<th>${k}</th>`).join('')}</tr></thead>
+              <thead><tr>${keys.map(k => `<th>${escapeHtml(k)}</th>`).join('')}</tr></thead>
               <tbody>
-                ${results.map(row => `<tr>${keys.map(k => `<td>${row[k] ?? ''}</td>`).join('')}</tr>`).join('')}
+                ${results.map(row => `<tr>${keys.map(k => `<td>${escapeHtml(row[k] ?? '')}</td>`).join('')}</tr>`).join('')}
               </tbody>
             </table>
           </div>`;
 
           if (sql) {
-            html += `<details><summary>Generated SQL</summary><pre>${sql}</pre></details>`;
+            html += `<details><summary>Generated SQL</summary><pre>${escapeHtml(sql)}</pre></details>`;
           }
           container.innerHTML = html;
         }

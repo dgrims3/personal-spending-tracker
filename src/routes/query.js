@@ -51,7 +51,7 @@ router.post('/', authenticate, async (req, res) => {
   } catch (err) {
     auditLog({ stage: 'query', step: 'error', question, error: err.message });
     console.error('Query error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'An internal error occurred. Please try again.' });
   }
 });
 

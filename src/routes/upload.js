@@ -159,7 +159,7 @@ router.post('/', authenticate, upload.single('receipt'), async (req, res) => {
   } catch (err) {
     auditLog({ stage: 'upload', step: 'error', error: err.message });
     console.error('Upload error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'An internal error occurred. Please try again.' });
   } finally {
     if (filePath && fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
