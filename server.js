@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const express = require('express');
+const http = require('http');
 const path = require('path');
 const initDb = require('./src/db/init');
 const db = require('./src/db/connection');
@@ -32,7 +33,24 @@ app.get('/api/config', (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+  // DB check — synchronous, throws if connection is broken
+  let dbOk = false;
+  try {
+    db.prepare('SELECT 1').get();
+    dbOk = true;
+  } catch (_) { /* dbOk stays false */ }
+
+  // Ollama reachability check — lightweight GET to /api/tags
+  const ollamaUrl = new URL('/api/tags', process.env.OLLAMA_URL || 'http://localhost:11434');
+  const ollamaReq = http.get(
+    { hostname: ollamaUrl.hostname, port: ollamaUrl.port || 11434, path: ollamaUrl.pathname, timeout: 3000 },
+    (ollamaRes) => {
+      ollamaRes.resume(); // drain so the socket closes
+      res.json({ status: 'ok', ollama: ollamaRes.statusCode === 200, db: dbOk });
+    },
+  );
+  ollamaReq.on('error', () => res.json({ status: 'ok', ollama: false, db: dbOk }));
+  ollamaReq.on('timeout', () => { ollamaReq.destroy(); res.json({ status: 'ok', ollama: false, db: dbOk }); });
 });
 
 const server = app.listen(PORT, () => {

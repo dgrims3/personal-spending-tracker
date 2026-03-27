@@ -1,0 +1,18 @@
+[Unit]
+Description=Receipt Tracker
+After=network.target
+
+[Service]
+Type=simple
+User=david
+WorkingDirectory=/home/david/receipt-tracker
+EnvironmentFile=/home/david/receipt-tracker/.env
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=receipt-tracker
+
+[Install]
+WantedBy=multi-user.target
