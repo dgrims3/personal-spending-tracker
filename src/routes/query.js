@@ -17,6 +17,9 @@ router.post('/', authenticate, async (req, res) => {
   if (!question || typeof question !== 'string' || !question.trim()) {
     return res.status(400).json({ error: 'A "question" field is required' });
   }
+  if (question.length > 500) {
+    return res.status(400).json({ error: 'Question must be 500 characters or fewer' });
+  }
 
   try {
     const categories = getAllCategories();

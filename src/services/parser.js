@@ -3,6 +3,7 @@ const path = require('path');
 const { generate } = require('./llm');
 const { auditLog } = require('./logger');
 const { validateLineItems } = require('./validator');
+const { assertSafeSQL } = require('./sql-safety');
 const { getAllCategories } = require('../db/queries');
 
 const PROMPTS_DIR = path.join(__dirname, '../prompts');
@@ -88,9 +89,6 @@ async function parseReceipt(rawText, existingCategories) {
   }
 }
 
-const SELECT_RE = /^\s*SELECT\b/i;
-const WRITE_RE = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|TRUNCATE)\b/i;
-
 /**
  * Convert a natural language question to a SQL SELECT query.
  * Throws if the generated query is not a safe SELECT statement.
@@ -116,10 +114,7 @@ async function generateSQL(question, existingCategories) {
     sql,
   });
 
-  if (!SELECT_RE.test(sql) || WRITE_RE.test(sql)) {
-    throw new Error('LLM returned a non-SELECT query');
-  }
-
+  assertSafeSQL(sql);
   return sql;
 }
 

@@ -1,21 +1,19 @@
-const path = require('path');
-const fs = require('fs');
-const Database = require('better-sqlite3');
+'use strict';
+
+// When run directly (node src/db/init.js), load .env before the connection
+// module opens the database file so DB_PATH is resolved correctly.
+if (require.main === module) {
+  require('dotenv').config();
+}
+
+const db = require('./connection');
 
 const DB_PATH = process.env.DB_PATH || './data/receipts.db';
 
 /**
- * Initialize the database, creating tables if they don't exist.
- * @returns {Database} The opened database instance
+ * Initialize the database, creating all tables if they don't exist.
  */
 function initDb() {
-  const dbDir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
-  }
-
-  const db = new Database(DB_PATH);
-
   db.exec(`
     CREATE TABLE IF NOT EXISTS receipts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,6 +52,12 @@ function initDb() {
       password_hash TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS revoked_tokens (
+      jti TEXT PRIMARY KEY,
+      revoked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME NOT NULL
+    );
   `);
 
   const seedCategories = db.prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)');
@@ -67,11 +71,10 @@ function initDb() {
   ]);
 
   console.log('Database initialized at', DB_PATH);
-  return db;
 }
 
 if (require.main === module) {
-  const db = initDb();
+  initDb();
   db.close();
   console.log('Done.');
 }

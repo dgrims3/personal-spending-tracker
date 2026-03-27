@@ -5,6 +5,7 @@ const path = require('path');
 const Anthropic = require('@anthropic-ai/sdk');
 const { auditLog } = require('./logger');
 const { validateLineItems } = require('./validator');
+const { assertSafeSQL } = require('./sql-safety');
 const { generateSQL: generateSQLLocal } = require('./parser');
 const { getAllCategories } = require('../db/queries');
 
@@ -182,9 +183,6 @@ async function parseReceiptWithVision(imageBuffer, mimeType, existingCategories)
   }
 }
 
-const SELECT_RE = /^\s*SELECT\b/i;
-const WRITE_RE = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|TRUNCATE)\b/i;
-
 /**
  * Convert a natural language question to a SQL SELECT query.
  * Uses Claude text API when RECEIPT_PARSER_MODE=claude and ANTHROPIC_API_KEY is set;
@@ -244,10 +242,7 @@ async function generateSQL(question, existingCategories) {
     sql,
   });
 
-  if (!SELECT_RE.test(sql) || WRITE_RE.test(sql)) {
-    throw new Error('LLM returned a non-SELECT query');
-  }
-
+  assertSafeSQL(sql);
   return sql;
 }
 
