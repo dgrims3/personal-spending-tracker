@@ -1,6 +1,7 @@
 # Receipt Tracker
 
-A self-hosted personal finance tool for scanning receipts and querying spending. Photograph a receipt with your phone, and the app extracts and categorizes every line item using AI — either the Anthropic Claude API (fast, accurate, ~$0.01–0.02 per receipt) or a fully local stack with Ollama and Tesseract (free, no internet required, but slower). All data is stored in a local SQLite database, and you can ask questions about your spending in plain English: "How much did I spend on groceries last month?"
+A self-hosted personal spending tracker where LLMs replace most of the traditional application logic. Snap a photo of any receipt, and AI extracts every line item, translates cryptic abbreviations into plain product names, categorizes them, and stores everything in SQLite. Instead of building a query interface with filters and dropdowns, users ask questions in plain English — "how much did I spend on groceries in March?" — and the LLM translates that into SQL and runs it. No query builder, no report templates — the model is the logic layer.
+Runs on any Linux server. Supports two parsing modes: Claude Vision API (fast, accurate, ~$0.02/receipt) or fully local with Tesseract OCR + Ollama (free, slower). No frameworks — just Express, vanilla JS, and SQLite.
 
 ---
 
