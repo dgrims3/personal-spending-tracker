@@ -9,6 +9,7 @@
 <body>
   <header>
     <h1>Receipt Tracker</h1>
+    <span id="parser-mode" class="parser-mode-badge"></span>
     <button id="logout-btn">Logout</button>
   </header>
 
@@ -24,6 +25,7 @@
         <label for="receipt-file">Take a photo or choose an image</label>
         <input type="file" id="receipt-file" name="receipt" accept="image/*" capture="environment" required>
         <button type="submit" id="upload-btn">Upload & Process</button>
+        <p id="local-mode-warning" class="local-mode-warning hidden">Local parsing may take several minutes per receipt</p>
       </form>
       <div id="upload-status" class="status hidden"></div>
       <div id="upload-results"></div>

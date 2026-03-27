@@ -1,6 +1,6 @@
 const express = require('express');
 const { authenticate } = require('../middleware/auth');
-const { generateSQL } = require('../services/parser');
+const { generateSQL } = require('../services/parser-router');
 const { auditLog } = require('../services/logger');
 const { getAllCategories, queryLineItems } = require('../db/queries');
 

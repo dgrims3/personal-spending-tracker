@@ -23,6 +23,30 @@ if (!localStorage.getItem('token')) {
   window.location.href = '/';
 }
 
+// --- Parser mode ---
+let parserMode = 'local';
+
+async function initConfig() {
+  try {
+    const res = await fetch('/api/config');
+    if (res.ok) {
+      const data = await res.json();
+      parserMode = data.parserMode || 'local';
+    }
+  } catch (_) {
+    // keep default
+  }
+
+  document.getElementById('parser-mode').textContent =
+    parserMode === 'claude' ? 'Parser: Claude API' : 'Parser: Local (Ollama)';
+
+  if (parserMode !== 'claude') {
+    document.getElementById('local-mode-warning').classList.remove('hidden');
+  }
+}
+
+initConfig();
+
 // --- Logout ---
 document.getElementById('logout-btn').addEventListener('click', async () => {
   await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
@@ -50,7 +74,9 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
 
   if (!fileInput.files.length) return;
 
-  statusEl.textContent = 'Processing receipt...';
+  statusEl.textContent = parserMode === 'claude'
+    ? 'Processing... (usually a few seconds)'
+    : 'Processing... (this may take 3\u20135 minutes)';
   statusEl.className = 'status processing';
   statusEl.classList.remove('hidden');
   resultsEl.innerHTML = '';

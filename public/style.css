@@ -276,6 +276,28 @@ pre {
   line-height: 44px;
 }
 
+/* Parser mode badge (header) */
+.parser-mode-badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+}
+
+/* Local mode warning (under upload button) */
+.local-mode-warning {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 0.85rem;
+}
+
 /* Desktop tweaks */
 @media (min-width: 600px) {
   .auth-container {

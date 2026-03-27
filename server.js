@@ -19,6 +19,11 @@ app.use('/api/auth', require('./src/routes/auth'));
 app.use('/api/upload', require('./src/routes/upload'));
 app.use('/api/query', require('./src/routes/query'));
 
+// Config — exposes non-sensitive runtime settings to the frontend
+app.get('/api/config', (req, res) => {
+  res.json({ parserMode: process.env.RECEIPT_PARSER_MODE || 'local' });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });

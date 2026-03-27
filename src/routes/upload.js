@@ -1,11 +1,12 @@
+'use strict';
+
 const express = require('express');
 const multer = require('multer');
 const os = require('os');
-const path = require('path');
 const fs = require('fs');
 const { authenticate } = require('../middleware/auth');
 const { extractText } = require('../services/ocr');
-const { parseReceipt } = require('../services/parser');
+const { parseReceipt } = require('../services/parser-router');
 const { auditLog } = require('../services/logger');
 const {
   insertReceipt,
@@ -39,24 +40,41 @@ router.post('/', authenticate, upload.single('receipt'), async (req, res) => {
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    // Step 1: OCR
-    const rawText = await extractText(filePath);
-    if (!rawText) {
-      return res.status(422).json({ error: 'Could not extract text from image' });
-    }
-
-    auditLog({ stage: 'upload', step: 'ocr-complete', textLength: rawText.length });
-
-    // Step 2: Store raw receipt
-    const receiptId = insertReceipt(rawText);
-
-    // Step 3: Get existing categories
+    const mode = process.env.RECEIPT_PARSER_MODE || 'local';
+    let imageBuffer = null;
+    let rawText;
+    let receiptId;
+    let parseResult;
     const existingCategories = getAllCategories();
 
-    // Step 4: Parse with LLM (retries once internally on full validation failure)
-    const { items, needsReview, reviewReason } = await parseReceipt(rawText, existingCategories);
+    if (mode === 'claude') {
+      // Claude vision: read image into buffer, skip Tesseract entirely.
+      // Parse first so we can store Claude's extracted raw text in the receipts table.
+      imageBuffer = fs.readFileSync(filePath);
+      auditLog({
+        stage: 'upload',
+        step: 'vision-start',
+        mimeType: req.file.mimetype,
+        imageSizeBytes: imageBuffer.length,
+      });
+      parseResult = await parseReceipt(imageBuffer, req.file.mimetype, null, existingCategories);
+      rawText = parseResult.rawText
+        ?? `Parsed via Claude Vision (${req.file.mimetype}, ${imageBuffer.length} bytes)`;
+      receiptId = insertReceipt(rawText);
+    } else {
+      // Local: run Tesseract OCR to get the raw receipt text, then parse with Ollama.
+      rawText = await extractText(filePath);
+      if (!rawText) {
+        return res.status(422).json({ error: 'Could not extract text from image' });
+      }
+      auditLog({ stage: 'upload', step: 'ocr-complete', textLength: rawText.length });
+      receiptId = insertReceipt(rawText);
+      parseResult = await parseReceipt(null, req.file.mimetype, rawText, existingCategories);
+    }
 
-    // Step 5: If ALL items failed after retry, queue for review
+    const { items, needsReview, reviewReason } = parseResult;
+
+    // If ALL items failed after retry, queue the whole receipt for manual review.
     if (items.length === 0 && needsReview) {
       insertReviewItem(receiptId, rawText, reviewReason);
       auditLog({ stage: 'upload', step: 'all-items-failed', receiptId, reason: reviewReason });
@@ -70,7 +88,6 @@ router.post('/', authenticate, upload.single('receipt'), async (req, res) => {
       });
     }
 
-    // Step 6: Insert valid items and their categories
     let itemsInserted = 0;
     let itemsFailed = 0;
 
@@ -85,19 +102,13 @@ router.post('/', authenticate, upload.single('receipt'), async (req, res) => {
       }
     }
 
-    // If some items needed review, queue those
+    // Some items were valid but others failed — queue for partial review.
     if (needsReview) {
       insertReviewItem(receiptId, rawText, reviewReason);
       auditLog({ stage: 'upload', step: 'partial-review', receiptId, reason: reviewReason });
     }
 
-    auditLog({
-      stage: 'upload',
-      step: 'complete',
-      receiptId,
-      itemsInserted,
-      itemsFailed,
-    });
+    auditLog({ stage: 'upload', step: 'complete', receiptId, itemsInserted, itemsFailed });
 
     res.json({ receiptId, itemsInserted, itemsFailed, items });
   } catch (err) {
