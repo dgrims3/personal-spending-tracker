@@ -4,7 +4,7 @@ const { generate } = require('./llm');
 const { auditLog } = require('./logger');
 const { validateLineItems } = require('./validator');
 const { assertSafeSQL } = require('./sql-safety');
-const { getAllCategories } = require('../db/queries');
+const { getCategoryHierarchy } = require('../db/queries');
 
 const PROMPTS_DIR = path.join(__dirname, '../prompts');
 
@@ -31,14 +31,14 @@ function fillTemplate(template, vars) {
  * Parse raw OCR text into structured line items using the LLM.
  * Retries once on validation failure; queues for review if still invalid.
  * @param {string} rawText
- * @param {string[]} [existingCategories] - Category names; fetched from DB if omitted
+ * @param {string} [categoryHierarchy] - Category hierarchy string; fetched from DB if omitted
  * @returns {Promise<{ items: object[], needsReview: boolean, reviewReason: string|null }>}
  */
-async function parseReceipt(rawText, existingCategories) {
-  const categories = existingCategories ?? getAllCategories();
+async function parseReceipt(rawText, categoryHierarchy) {
+  const hierarchy = categoryHierarchy ?? getCategoryHierarchy();
   const template = loadPrompt('parse-receipt');
   const prompt = fillTemplate(template, {
-    categories: categories.length ? categories.join(', ') : '(none yet)',
+    category_hierarchy: hierarchy || '(none yet)',
     raw_text: rawText,
   });
 
@@ -93,14 +93,14 @@ async function parseReceipt(rawText, existingCategories) {
  * Convert a natural language question to a SQL SELECT query.
  * Throws if the generated query is not a safe SELECT statement.
  * @param {string} question
- * @param {string[]} [existingCategories] - Category names; fetched from DB if omitted
+ * @param {string} [categoryHierarchy] - Category hierarchy string; fetched from DB if omitted
  * @returns {Promise<string>} SQL query string
  */
-async function generateSQL(question, existingCategories) {
-  const categories = existingCategories ?? getAllCategories();
+async function generateSQL(question, categoryHierarchy) {
+  const hierarchy = categoryHierarchy ?? getCategoryHierarchy();
   const template = loadPrompt('query-to-sql');
   const prompt = fillTemplate(template, {
-    categories: categories.length ? categories.join(', ') : '(none yet)',
+    category_hierarchy: hierarchy || '(none yet)',
     question,
   });
 

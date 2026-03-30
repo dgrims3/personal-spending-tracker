@@ -38,6 +38,12 @@ function initDb() {
       name TEXT UNIQUE NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS sub_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      category_id INTEGER REFERENCES categories(id)
+    );
+
     CREATE TABLE IF NOT EXISTS review_queue (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       receipt_id INTEGER,
@@ -60,14 +66,33 @@ function initDb() {
     );
   `);
 
-  const seedCategories = db.prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)');
-  const seedMany = db.transaction((names) => {
-    for (const name of names) seedCategories.run(name);
+  // Seed parent categories
+  const seedCategory = db.prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)');
+  const seedCategories = db.transaction((names) => {
+    for (const name of names) seedCategory.run(name);
   });
-  seedMany([
-    'Produce', 'Dairy', 'Meat', 'Bakery', 'Frozen',
-    'Beverages', 'Snacks', 'Household', 'Health & Beauty',
-    'Baby', 'Pet', 'Clothing', 'Electronics', 'Gas', 'Dining Out', 'Other',
+  seedCategories([
+    'Groceries', 'Household', 'Health & Beauty', 'Baby', 'Pet',
+    'Clothing', 'Electronics', 'Transportation', 'Dining',
+    'Utilities', 'Healthcare', 'Entertainment', 'Other',
+  ]);
+
+  // Seed sub-categories with their parent category mappings
+  const getCategoryId = db.prepare('SELECT id FROM categories WHERE name = ?');
+  const seedSub = db.prepare('INSERT OR IGNORE INTO sub_categories (name, category_id) VALUES (?, ?)');
+  const seedSubs = db.transaction((entries) => {
+    for (const [subName, parentName] of entries) {
+      const parent = getCategoryId.get(parentName);
+      seedSub.run(subName, parent ? parent.id : null);
+    }
+  });
+  seedSubs([
+    ['Produce', 'Groceries'], ['Dairy', 'Groceries'], ['Meat', 'Groceries'],
+    ['Bakery', 'Groceries'], ['Frozen', 'Groceries'], ['Beverages', 'Groceries'],
+    ['Snacks', 'Groceries'], ['Household', 'Household'], ['Health & Beauty', 'Health & Beauty'],
+    ['Baby', 'Baby'], ['Pet', 'Pet'], ['Clothing', 'Clothing'],
+    ['Electronics', 'Electronics'], ['Gas', 'Transportation'],
+    ['Dining Out', 'Dining'], ['Other', 'Other'],
   ]);
 
   console.log('Database initialized at', DB_PATH);

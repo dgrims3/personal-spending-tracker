@@ -11,8 +11,8 @@ const { auditLog } = require('../services/logger');
 const {
   insertReceipt,
   insertLineItem,
-  getAllCategories,
-  insertCategory,
+  getCategoryHierarchy,
+  insertSubCategory,
   insertReviewItem,
 } = require('../db/queries');
 
@@ -90,7 +90,7 @@ router.post('/', authenticate, upload.single('receipt'), async (req, res) => {
     let rawText;
     let receiptId;
     let parseResult;
-    const existingCategories = getAllCategories();
+    const categoryHierarchy = getCategoryHierarchy();
 
     if (mode === 'claude') {
       // Claude vision: read image into buffer, skip Tesseract entirely.
@@ -102,7 +102,7 @@ router.post('/', authenticate, upload.single('receipt'), async (req, res) => {
         mimeType: req.file.mimetype,
         imageSizeBytes: imageBuffer.length,
       });
-      parseResult = await parseReceipt(imageBuffer, req.file.mimetype, null, existingCategories);
+      parseResult = await parseReceipt(imageBuffer, req.file.mimetype, null, categoryHierarchy);
       rawText = parseResult.rawText
         ?? `Parsed via Claude Vision (${req.file.mimetype}, ${imageBuffer.length} bytes)`;
       receiptId = insertReceipt(rawText);
@@ -114,7 +114,7 @@ router.post('/', authenticate, upload.single('receipt'), async (req, res) => {
       }
       auditLog({ stage: 'upload', step: 'ocr-complete', textLength: rawText.length });
       receiptId = insertReceipt(rawText);
-      parseResult = await parseReceipt(null, req.file.mimetype, rawText, existingCategories);
+      parseResult = await parseReceipt(null, req.file.mimetype, rawText, categoryHierarchy);
     }
 
     const { items, needsReview, reviewReason } = parseResult;
@@ -138,8 +138,8 @@ router.post('/', authenticate, upload.single('receipt'), async (req, res) => {
 
     for (const item of items) {
       try {
-        insertCategory(item.category);
-        insertLineItem(receiptId, item.store, item.product, item.category, item.date, item.cost, item.quantity);
+        insertSubCategory(item.sub_category, item.category);
+        insertLineItem(receiptId, item.store, item.product, item.sub_category, item.date, item.cost, item.quantity);
         itemsInserted++;
       } catch (err) {
         auditLog({ stage: 'upload', step: 'insert-failed', receiptId, item, error: err.message });

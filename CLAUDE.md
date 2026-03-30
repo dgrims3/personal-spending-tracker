@@ -63,11 +63,18 @@ CREATE TABLE line_items (
 
 CREATE TABLE categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE NOT NULL
+    name TEXT UNIQUE NOT NULL  -- broad: Groceries, Utilities, Healthcare, etc.
+);
+
+CREATE TABLE sub_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,  -- specific: Produce, Dairy, Electric, etc.
+    category_id INTEGER,
+    FOREIGN KEY (category_id) REFERENCES categories(id)
 );
 ```
 
-The `categories` table is the source of truth. Before the LLM creates a new category, the app must query all existing categories and pass them to the LLM prompt so it picks an existing one when appropriate.
+Note: `line_items.category` stores the **sub-category name** (e.g. "Dairy"). The parent category relationship is resolved by JOINing through `sub_categories` to `categories`.
 
 ## Project Structure
 
@@ -112,7 +119,7 @@ receipt-tracker/
 ### LLM Output Validation
 NEVER insert LLM output directly into the database. Always:
 1. Parse the LLM response as JSON
-2. Validate required fields exist: store, product, category, date, cost
+2. Validate required fields exist: store, product, category, sub_category, date, cost
 3. Validate types: cost is a number > 0, date matches YYYY-MM-DD, quantity is a positive integer
 4. If validation fails, log the failure and retry the prompt once. If it fails again, save to a "review queue" for manual inspection.
 
@@ -125,12 +132,15 @@ Every call to Ollama must be logged to `logs/llm-audit.log` with:
 - Whether validation passed/failed
 
 ### Category Management
+Categories are two-level: a broad parent `categories` table (e.g. Groceries, Utilities) and a `sub_categories` table for specific sub-types (e.g. Dairy, Produce).
+
 Before asking the LLM to categorize items:
-1. Query all existing categories from the `categories` table
-2. Include the full category list in the prompt
-3. The LLM should use an existing category if one fits
-4. Only create a new category if nothing existing is appropriate
-5. New categories are inserted into the `categories` table
+1. Call `getCategoryHierarchy()` to get a formatted string of the full hierarchy
+2. Include the hierarchy in the prompt via `{{category_hierarchy}}`
+3. The LLM returns both `category` (parent) and `sub_category` (detail)
+4. Use existing categories/sub-categories when they fit; create new ones only if needed
+5. New entries are inserted via `insertSubCategory(subCategoryName, categoryName)`
+6. `line_items.category` stores the sub-category name; JOIN through `sub_categories` → `categories` to query by broad category
 
 ### Prompt Files
 All LLM prompts live in `src/prompts/` as markdown files. The app loads them at runtime. This allows prompt iteration without code changes. Prompts use `{{variable}}` placeholders that get replaced at runtime.

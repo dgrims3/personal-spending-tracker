@@ -15,16 +15,16 @@ const MODE = process.env.RECEIPT_PARSER_MODE || 'local';
  * @param {Buffer|null} imageBuffer - Raw image bytes (required in claude mode)
  * @param {string} mimeType - MIME type of the image (e.g. 'image/jpeg')
  * @param {string} rawText - OCR output or placeholder (required in local mode)
- * @param {string[]} [existingCategories] - Category names; fetched from DB if omitted
+ * @param {string} [categoryHierarchy] - Category hierarchy string; fetched from DB if omitted
  * @returns {Promise<{ items: object[], needsReview: boolean, reviewReason: string|null }>}
  */
-async function parseReceipt(imageBuffer, mimeType, rawText, existingCategories) {
+async function parseReceipt(imageBuffer, mimeType, rawText, categoryHierarchy) {
   auditLog({ stage: 'parser-router', mode: MODE, fn: 'parseReceipt' });
 
   if (MODE === 'claude') {
-    return parseReceiptWithVision(imageBuffer, mimeType, existingCategories);
+    return parseReceiptWithVision(imageBuffer, mimeType, categoryHierarchy);
   }
-  return parseReceiptLocal(rawText, existingCategories);
+  return parseReceiptLocal(rawText, categoryHierarchy);
 }
 
 /**
@@ -32,16 +32,16 @@ async function parseReceipt(imageBuffer, mimeType, rawText, existingCategories) 
  * configured RECEIPT_PARSER_MODE.
  *
  * @param {string} question
- * @param {string[]} [existingCategories] - Category names; fetched from DB if omitted
+ * @param {string} [categoryHierarchy] - Category hierarchy string; fetched from DB if omitted
  * @returns {Promise<string>} SQL SELECT query string
  */
-async function generateSQL(question, existingCategories) {
+async function generateSQL(question, categoryHierarchy) {
   auditLog({ stage: 'parser-router', mode: MODE, fn: 'generateSQL' });
 
   if (MODE === 'claude') {
-    return generateSQLClaude(question, existingCategories);
+    return generateSQLClaude(question, categoryHierarchy);
   }
-  return generateSQLLocal(question, existingCategories);
+  return generateSQLLocal(question, categoryHierarchy);
 }
 
 module.exports = { parseReceipt, generateSQL };

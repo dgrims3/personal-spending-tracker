@@ -7,7 +7,7 @@ const { auditLog } = require('./logger');
 const { validateLineItems } = require('./validator');
 const { assertSafeSQL } = require('./sql-safety');
 const { generateSQL: generateSQLLocal } = require('./parser');
-const { getAllCategories } = require('../db/queries');
+const { getCategoryHierarchy } = require('../db/queries');
 
 const PROMPTS_DIR = path.join(__dirname, '../prompts');
 
@@ -44,13 +44,13 @@ function fillTemplate(template, vars) {
 
 /**
  * Build the vision prompt text from parse-receipt-vision.md.
- * @param {string[]} categories
+ * @param {string} categoryHierarchy
  * @returns {string}
  */
-function buildVisionPromptText(categories) {
+function buildVisionPromptText(categoryHierarchy) {
   const template = loadPrompt('parse-receipt-vision');
   return fillTemplate(template, {
-    categories: categories.length ? categories.join(', ') : '(none yet)',
+    category_hierarchy: categoryHierarchy || '(none yet)',
   }).trim();
 }
 
@@ -82,14 +82,14 @@ function formatApiError(err) {
  *
  * @param {Buffer} imageBuffer - Raw image bytes
  * @param {string} mimeType - MIME type (e.g. 'image/jpeg', 'image/png')
- * @param {string[]} [existingCategories] - Category names; fetched from DB if omitted
+ * @param {string} [categoryHierarchy] - Category hierarchy string; fetched from DB if omitted
  * @returns {Promise<{ items: object[], needsReview: boolean, reviewReason: string|null }>}
  */
-async function parseReceiptWithVision(imageBuffer, mimeType, existingCategories) {
+async function parseReceiptWithVision(imageBuffer, mimeType, categoryHierarchy) {
   const client = getClient();
   const model = process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514';
-  const categories = existingCategories ?? getAllCategories();
-  const promptText = buildVisionPromptText(categories);
+  const hierarchy = categoryHierarchy ?? getCategoryHierarchy();
+  const promptText = buildVisionPromptText(hierarchy);
   const imageBase64 = imageBuffer.toString('base64');
 
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -189,23 +189,23 @@ async function parseReceiptWithVision(imageBuffer, mimeType, existingCategories)
  * otherwise delegates to the local Ollama-based generator.
  *
  * @param {string} question
- * @param {string[]} [existingCategories] - Category names; fetched from DB if omitted
+ * @param {string} [categoryHierarchy] - Category hierarchy string; fetched from DB if omitted
  * @returns {Promise<string>} SQL SELECT query string
  */
-async function generateSQL(question, existingCategories) {
+async function generateSQL(question, categoryHierarchy) {
   const useClaude =
     process.env.RECEIPT_PARSER_MODE === 'claude' && !!process.env.ANTHROPIC_API_KEY;
 
   if (!useClaude) {
-    return generateSQLLocal(question, existingCategories);
+    return generateSQLLocal(question, categoryHierarchy);
   }
 
   const client = getClient();
   const model = process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514';
-  const categories = existingCategories ?? getAllCategories();
+  const hierarchy = categoryHierarchy ?? getCategoryHierarchy();
   const template = loadPrompt('query-to-sql');
   const prompt = fillTemplate(template, {
-    categories: categories.length ? categories.join(', ') : '(none yet)',
+    category_hierarchy: hierarchy || '(none yet)',
     question,
   });
 

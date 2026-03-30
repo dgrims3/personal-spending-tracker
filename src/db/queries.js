@@ -30,7 +30,7 @@ function insertLineItem(receiptId, store, product, category, date, cost, quantit
 }
 
 /**
- * Get all category names.
+ * Get all parent category names.
  * @returns {string[]}
  */
 function getAllCategories() {
@@ -38,11 +38,40 @@ function getAllCategories() {
 }
 
 /**
- * Insert a category if it doesn't already exist.
- * @param {string} name
+ * Get all sub-category names.
+ * @returns {string[]}
  */
-function insertCategory(name) {
-  db.prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)').run(name);
+function getAllSubCategories() {
+  return db.prepare('SELECT name FROM sub_categories ORDER BY name').all().map(r => r.name);
+}
+
+/**
+ * Get the full category hierarchy as a formatted string for LLM prompts.
+ * Returns lines like: "Groceries: Produce, Dairy, Meat, ..."
+ * @returns {string}
+ */
+function getCategoryHierarchy() {
+  const rows = db.prepare(`
+    SELECT c.name AS category, GROUP_CONCAT(s.name, ', ') AS subs
+    FROM categories c
+    LEFT JOIN sub_categories s ON s.category_id = c.id
+    GROUP BY c.id
+    ORDER BY c.name
+  `).all();
+  return rows.map(r => r.subs ? `${r.category}: ${r.subs}` : `${r.category}: (no sub-categories yet)`).join('\n');
+}
+
+/**
+ * Insert a sub-category if it doesn't already exist, linking it to its parent category.
+ * Also inserts the parent category if it doesn't exist.
+ * @param {string} subCategoryName
+ * @param {string} categoryName - The parent category name
+ */
+function insertSubCategory(subCategoryName, categoryName) {
+  // Ensure parent category exists
+  db.prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)').run(categoryName);
+  const parent = db.prepare('SELECT id FROM categories WHERE name = ?').get(categoryName);
+  db.prepare('INSERT OR IGNORE INTO sub_categories (name, category_id) VALUES (?, ?)').run(subCategoryName, parent.id);
 }
 
 /**
@@ -121,7 +150,8 @@ function cleanupExpiredTokens() {
 }
 
 module.exports = {
-  insertReceipt, insertLineItem, getAllCategories, insertCategory,
+  insertReceipt, insertLineItem, getAllCategories, getAllSubCategories,
+  getCategoryHierarchy, insertSubCategory,
   insertReviewItem, queryLineItems, getUserCount, getUserByUsername, insertUser,
   revokeToken, isTokenRevoked, cleanupExpiredTokens,
 };

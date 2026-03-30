@@ -36,6 +36,12 @@ function validateOne(item) {
     errors.push(`category must be ${MAX_CATEGORY_LENGTH} characters or fewer`);
   }
 
+  if (typeof item.sub_category !== 'string' || !item.sub_category.trim()) {
+    errors.push('sub_category must be a non-empty string');
+  } else if (item.sub_category.trim().length > MAX_CATEGORY_LENGTH) {
+    errors.push(`sub_category must be ${MAX_CATEGORY_LENGTH} characters or fewer`);
+  }
+
   if (typeof item.date !== 'string' || !DATE_RE.test(item.date)) {
     errors.push('date must match YYYY-MM-DD');
   }
@@ -85,6 +91,7 @@ function validateLineItems(items) {
         store: item.store.trim(),
         product: item.product.trim(),
         category: item.category.trim(),
+        sub_category: item.sub_category.trim(),
         date: item.date,
         cost: item.cost,
         quantity: item.quantity ?? 1,

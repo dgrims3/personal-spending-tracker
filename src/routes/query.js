@@ -2,7 +2,7 @@ const express = require('express');
 const { authenticate } = require('../middleware/auth');
 const { generateSQL } = require('../services/parser-router');
 const { auditLog } = require('../services/logger');
-const { getAllCategories, queryLineItems } = require('../db/queries');
+const { getCategoryHierarchy, queryLineItems } = require('../db/queries');
 
 const router = express.Router();
 
@@ -22,8 +22,8 @@ router.post('/', authenticate, async (req, res) => {
   }
 
   try {
-    const categories = getAllCategories();
-    const sql = await generateSQL(question, categories);
+    const categoryHierarchy = getCategoryHierarchy();
+    const sql = await generateSQL(question, categoryHierarchy);
 
     let results;
     try {
